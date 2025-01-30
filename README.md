@@ -9,3 +9,4 @@ The pirate ships will get faster over time, making the game more challenging!
 If a pirate ship crashes into your ship, you lose!
 
 So defend your precious booty from those scurvy scallywags!
+
