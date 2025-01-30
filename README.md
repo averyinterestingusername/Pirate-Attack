@@ -1,6 +1,6 @@
 # Pirate Attack!
 
-[Play the game here!](https://htmlpreview.github.io/?https://github.com/averyinterestingusername/Pirate-Attack/blob/main/game.html)
+[Play the game here!](https://averyinterestingusername.github.io/Pirate-Attack/game.html)
 
 This is a little browser game where you have to defend your ship from pirates, by typing the words floating above the pirate ships! 
 
