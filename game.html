@@ -1,0 +1,241 @@
+<!--  -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pirate Attack!</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #1a1a1a;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+    }
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: white;
+    }
+    .word-progress {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 20px;
+      color: white;
+    }
+    .restart-btn {
+      position: absolute;
+      top: 60%;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      font-size: 20px;
+      border: none;
+      cursor: pointer;
+    }
+    .restart-btn:hover {
+      background-color: #218838;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="gameOver" class="game-over" style="display: none;">Game Over</div>
+  <div id="wordProgress" class="word-progress"></div>
+  <button id="restartButton" class="restart-btn" style="display: none;" onclick="restartGame()">Restart</button>
+  
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const ship = {
+      x: canvas.width / 2,
+      y: canvas.height - 150,
+      width: 60,
+      height: 120
+    };
+
+    let enemies = [];
+    const words = [
+      "cannon", "buccaneer", "shipwreck", "sail", "pirate", "treasure", "anchor", "deck", "battle", "mast",
+      "galleon", "plunder", "corsair", "brigantine", "rum", "jollyroger", "cutlass", "buoy", "harbor", "scallywag",
+      "sloop", "mutiny", "mariner", "seaworthy", "voyage", "swashbuckler", "blackbeard", "sea", "frigate", "warship",
+      "tanker", "fleet", "shipyard", "seaquake", "kraken", "davyjones", "mermaid", "rumrunner", "longboat", "whale",
+      "reef", "tide", "ocean", "reef", "pirateship", "broadsword", "bounty", "plunderer", "galleon", "schooner",
+      "scurvy", "barnacle", "nautical", "brine", "windward", "leeward", "foremast", "starboard", "portside", "hull",
+      "seasick", "quarterdeck", "privateer", "shipwreck", "cutlass", "seawater", "compass", "davyjoneslocker"
+    ];
+    let playerInput = "";
+    let gameOver = false;
+    let gameTime = 0;
+    let enemyGenerationInterval;
+    const safeRadius = 200;
+    const collisionBuffer = 0.7;  // Matches up close enough 
+
+    // Load images
+    const playerShipImage = new Image();
+    playerShipImage.src = 'player_ship.png';
+
+    const enemyShipImage = new Image();
+    enemyShipImage.src = 'pirate_ship.png';
+
+    // Function to check if spawn position is too close
+    const isTooClose = (x, y) => {
+      const dx = ship.x - x;
+      const dy = ship.y - y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance < safeRadius;
+    };
+
+    function Enemy() {
+      let spawnX, spawnY;
+
+      do {
+        const edge = Math.floor(Math.random() * 4);
+        
+        if (edge === 0) { spawnX = 0; spawnY = Math.random() * canvas.height; }
+        else if (edge === 1) { spawnX = canvas.width - 80; spawnY = Math.random() * canvas.height; }
+        else if (edge === 2) { spawnX = Math.random() * canvas.width; spawnY = 0; }
+        else { spawnX = Math.random() * canvas.width; spawnY = canvas.height - 80; }
+      } while (isTooClose(spawnX, spawnY));
+
+      this.x = spawnX;
+      this.y = spawnY;
+      this.speed = 0.5 + gameTime;
+      this.word = words[Math.floor(Math.random() * words.length)];
+      this.width = 80;
+      this.height = 80;
+    }
+
+    // Draw player and enemies
+    const drawShip = () => ctx.drawImage(playerShipImage, ship.x, ship.y, ship.width, ship.height);
+    
+    const drawEnemies = () => {
+      enemies.forEach((enemy) => {
+        const dx = ship.x - enemy.x;
+        const dy = ship.y - enemy.y;
+        const angle = Math.atan2(dy, dx);
+
+        ctx.save();
+        ctx.translate(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+        ctx.rotate(angle + Math.PI / 2);
+        ctx.drawImage(enemyShipImage, -enemy.width / 2, -enemy.height / 2, enemy.width, enemy.height);
+        ctx.restore();
+
+        ctx.fillStyle = "white";
+        ctx.font = "16px Arial";
+        ctx.fillText(enemy.word, enemy.x + 5, enemy.y + 20);
+      });
+    };
+
+    // Move enemies towards the ship
+    const moveEnemies = () => {
+      enemies.forEach((enemy) => {
+        const dx = ship.x - enemy.x;
+        const dy = ship.y - enemy.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance === 0) return;
+
+        const dxNormalized = dx / distance;
+        const dyNormalized = dy / distance;
+
+        enemy.x += dxNormalized * enemy.speed;
+        enemy.y += dyNormalized * enemy.speed;
+      });
+    };
+
+    const checkCollisions = () => {
+      enemies.forEach((enemy) => {
+        if (
+          enemy.x < ship.x + ship.width * collisionBuffer &&
+          enemy.x + enemy.width > ship.x + ship.width * (1 - collisionBuffer) &&
+          enemy.y < ship.y + ship.height * collisionBuffer &&
+          enemy.y + enemy.height > ship.y + ship.height * (1 - collisionBuffer)
+        ) {
+          gameOver = true;
+          document.getElementById("gameOver").style.display = "block";
+          document.getElementById("restartButton").style.display = "inline-block";
+        }
+      });
+    };
+
+    const updateWordProgress = () => {
+      document.getElementById("wordProgress").textContent = `Typing: ${playerInput}`;
+    };
+
+    // Game loop
+    const update = () => {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawShip();
+      drawEnemies();
+      moveEnemies();
+      checkCollisions();
+      updateWordProgress();
+
+      gameTime += 0.001;
+      requestAnimationFrame(update);
+    };
+
+    const generateEnemy = () => {
+      enemies.push(new Enemy());
+    };
+
+    const handleInput = (event) => {
+      if (gameOver) return;
+
+      if (event.key === "Backspace") {
+        playerInput = playerInput.slice(0, -1);
+      } else if (/[a-zA-Z0-9]/.test(event.key)) {
+        playerInput += event.key;
+      }
+
+      enemies.forEach((enemy, index) => {
+        if (playerInput === enemy.word) {
+          enemies.splice(index, 1);
+          playerInput = "";
+        }
+      });
+    };
+
+    const restartGame = () => {
+      gameOver = false;
+      gameTime = 0;
+      playerInput = "";
+      enemies = [];
+      ship.x = canvas.width / 2;
+      ship.y = canvas.height - 150;
+
+      clearInterval(enemyGenerationInterval);
+      enemyGenerationInterval = setInterval(generateEnemy, 2000);
+
+      document.getElementById("gameOver").style.display = "none";
+      document.getElementById("restartButton").style.display = "none";
+
+      update();
+    };
+
+    // Start the game
+    document.addEventListener("keydown", handleInput);
+    enemyGenerationInterval = setInterval(generateEnemy, 2000);
+    update();
+  </script>
+</body>
+</html>
